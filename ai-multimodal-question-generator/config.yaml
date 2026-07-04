@@ -1,0 +1,234 @@
+# =============================================================================
+# AI Question Generator – Central Configuration
+# =============================================================================
+# Edit this file to change model names, generation defaults, retrieval
+# settings, Bloom level definitions, and export options without touching code.
+# All paths are relative to the project root unless noted.
+# =============================================================================
+
+# ── Application ──────────────────────────────────────────────────────────────
+app:
+  name: "AI Question Generator"
+  version: "1.0.0"
+  description: "Bloom's Taxonomy-aligned MCQ generation from text"
+  min_text_length: 100           # characters required before generation starts
+  log_level: "INFO"              # DEBUG | INFO | WARNING | ERROR
+  seed: 42                       # global random seed for reproducibility
+
+# ── Models ───────────────────────────────────────────────────────────────────
+models:
+
+  mcq_generator:
+    name: "valhalla/t5-base-qg-hl"
+    max_input_length: 512        # encoder token limit
+    max_output_length: 64        # decoder token limit
+    num_beams: 4                 # beam-search width
+    early_stopping: true
+    device: "auto"               # "auto" | "cpu" | "cuda"
+
+  bloom_classifier:
+    primary: "RyanLauQF/BloomBERT-base"
+    fallback: "distilbert-base-uncased"
+    num_labels: 6
+    max_length: 128              # tokeniser max sequence length
+    device: "auto"
+
+  embeddings:
+    name: "all-MiniLM-L6-v2"    # sentence-transformers model
+    device: "auto"
+    normalize: true              # L2-normalise embeddings for cosine sim
+
+# ── MCQ Generation Defaults ───────────────────────────────────────────────────
+generation:
+  num_questions: 5               # default number of MCQs to generate
+  num_distractors: 3             # wrong answers per question
+  difficulty: "Any"              # Easy | Medium | Hard | Any
+  auto_classify_bloom: true      # run Bloom classifier after generation
+  enable_rag: false              # enable RAG retrieval by default
+
+  difficulty_thresholds:
+    easy_max_words: 20           # sentence word count → Easy if below
+    medium_max_words: 50         # sentence word count → Medium if below
+    easy_max_answer_words: 1
+    medium_max_answer_words: 3
+
+# ── RAG / Retriever Settings ──────────────────────────────────────────────────
+retriever:
+  chunk_size: 250                # words per passage chunk
+  overlap: 50                    # overlapping words between chunks
+  top_k: 5                       # passages returned per query
+  batch_size: 64                 # encoding batch size (for large docs)
+  index_type: "IndexFlatIP"      # FAISS index type (inner-product / cosine)
+  min_passage_length: 10         # minimum words for a passage to be indexed
+
+# ── Bloom's Taxonomy ─────────────────────────────────────────────────────────
+bloom_taxonomy:
+
+  levels:
+    - index: 0
+      name: "Remember"
+      description: "Recall facts and basic concepts"
+      colour: "#4CAF50"
+      difficulty_weight: 1
+      keywords:
+        - define
+        - list
+        - recall
+        - name
+        - state
+        - identify
+        - recognise
+        - label
+        - memorise
+        - what is
+
+    - index: 1
+      name: "Understand"
+      description: "Explain ideas or concepts"
+      colour: "#2196F3"
+      difficulty_weight: 2
+      keywords:
+        - explain
+        - describe
+        - summarise
+        - interpret
+        - classify
+        - compare
+        - paraphrase
+        - discuss
+        - illustrate
+        - outline
+
+    - index: 2
+      name: "Apply"
+      description: "Use information in new situations"
+      colour: "#FF9800"
+      difficulty_weight: 3
+      keywords:
+        - apply
+        - use
+        - solve
+        - demonstrate
+        - calculate
+        - implement
+        - execute
+        - operate
+        - show
+        - construct
+
+    - index: 3
+      name: "Analyze"
+      description: "Draw connections among ideas"
+      colour: "#9C27B0"
+      difficulty_weight: 4
+      keywords:
+        - analyze
+        - compare
+        - contrast
+        - differentiate
+        - examine
+        - break down
+        - infer
+        - distinguish
+        - organise
+        - attribute
+
+    - index: 4
+      name: "Evaluate"
+      description: "Justify decisions or choices"
+      colour: "#F44336"
+      difficulty_weight: 5
+      keywords:
+        - evaluate
+        - justify
+        - critique
+        - assess
+        - judge
+        - argue
+        - defend
+        - prioritise
+        - recommend
+        - appraise
+
+    - index: 5
+      name: "Create"
+      description: "Produce new or original work"
+      colour: "#00BCD4"
+      difficulty_weight: 6
+      keywords:
+        - create
+        - design
+        - develop
+        - formulate
+        - construct
+        - plan
+        - produce
+        - generate
+        - compose
+        - devise
+
+# ── Export Settings ───────────────────────────────────────────────────────────
+export:
+
+  csv:
+    encoding: "utf-8-sig"        # BOM ensures Excel compatibility
+    columns:
+      - "No"
+      - "Question"
+      - "Option A"
+      - "Option B"
+      - "Option C"
+      - "Option D"
+      - "Answer Label"
+      - "Answer"
+      - "Bloom Level"
+      - "Difficulty"
+
+  excel:
+    sheet_title: "MCQ Quiz"
+    header_colour: "2E4057"       # hex without '#'
+    subheader_colour: "048A81"
+    alt_row_colour: "F0F4F8"
+    answer_highlight_colour: "D4EDDA"
+    font_name: "Calibri"
+    freeze_header: true
+    include_summary_sheet: true
+
+  pdf:
+    page_size: "A4"
+    margins_cm: 2.0
+    title: "Multiple Choice Question Paper"
+    institution: ""
+    show_answers: false
+    font_name: "Helvetica"
+    title_font_size: 18
+    question_font_size: 11
+    option_font_size: 10
+    header_colour: "2E4057"       # hex without '#'
+    accent_colour: "048A81"
+
+# ── NLTK Resources ────────────────────────────────────────────────────────────
+nltk:
+  resources:
+    - path: "tokenizers/punkt"
+      package: "punkt"
+    - path: "tokenizers/punkt_tab"
+      package: "punkt_tab"
+    - path: "taggers/averaged_perceptron_tagger"
+      package: "averaged_perceptron_tagger"
+    - path: "taggers/averaged_perceptron_tagger_eng"
+      package: "averaged_perceptron_tagger_eng"
+    - path: "chunkers/maxent_ne_chunker"
+      package: "maxent_ne_chunker"
+    - path: "corpora/words"
+      package: "words"
+    - path: "corpora/wordnet"
+      package: "wordnet"
+
+# ── File Paths ────────────────────────────────────────────────────────────────
+paths:
+  data_input:    "data/input"
+  data_output:   "data/output"
+  data_examples: "data/examples"
+  models_cache:  "data/models"
+  logs:          "logs"
