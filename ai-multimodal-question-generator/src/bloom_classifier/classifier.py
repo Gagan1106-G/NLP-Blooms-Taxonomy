@@ -3,7 +3,6 @@
 Classifies questions into one of the six cognitive levels defined by Bloom's
 Revised Taxonomy using a fine-tuned BERT-based model with a DistilBERT fallback.
 """
-
 from __future__ import annotations
 
 import logging
