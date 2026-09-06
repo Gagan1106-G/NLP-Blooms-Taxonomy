@@ -39,8 +39,9 @@ models:
     normalize: true              # L2-normalise embeddings for cosine sim
 
 # ── MCQ Generation Defaults ───────────────────────────────────────────────────
+# ── MCQ Generation Defaults ───────────────────────────────────────────────────
 generation:
-  num_questions: 5               # default number of MCQs to generate
+  num_questions: 20              # CHANGED: Default number of MCQs to generate (was 5)
   num_distractors: 3             # wrong answers per question
   difficulty: "Any"              # Easy | Medium | Hard | Any
   auto_classify_bloom: true      # run Bloom classifier after generation
@@ -51,7 +52,6 @@ generation:
     medium_max_words: 50         # sentence word count → Medium if below
     easy_max_answer_words: 1
     medium_max_answer_words: 3
-
 # ── RAG / Retriever Settings ──────────────────────────────────────────────────
 retriever:
   chunk_size: 250                # words per passage chunk
