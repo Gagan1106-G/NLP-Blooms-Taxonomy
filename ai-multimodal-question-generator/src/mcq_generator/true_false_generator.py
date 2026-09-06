@@ -1,6 +1,6 @@
 """
 True/False Question Generator
-Generates true/false questions from input text.
+Generates true/false questions from input text strictly based on source content.
 """
 
 import logging
@@ -10,13 +10,10 @@ from typing import List, Dict, Any
 
 import nltk
 
-# Download required NLTK data with better error handling
 try:
     from nltk.tokenize import sent_tokenize
-    # Test if punkt_tab works
     sent_tokenize("Test sentence.")
 except (LookupError, OSError):
-    # Download if not available
     try:
         nltk.download('punkt_tab', quiet=True)
         nltk.download('punkt', quiet=True)
@@ -29,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class TrueFalseGenerator:
-    """Generates True/False questions from text passages."""
+    """Generates True/False questions from text passages with difficulty support."""
     
     def __init__(self):
         """Initialize the True/False generator."""
@@ -38,102 +35,91 @@ class TrueFalseGenerator:
     def generate_true_false(
         self, 
         text: str, 
-        num_questions: int = 5
+        num_questions: int = 5,
+        target_difficulty: str = "Any"
     ) -> List[Dict[str, Any]]:
         """
-        Generate true/false questions from the input text.
-        
-        Args:
-            text: Input text to generate questions from
-            num_questions: Number of questions to generate
-            
-        Returns:
-            List of question dictionaries
+        Generate true/false questions from the input text supporting up to 50 items.
         """
-        logger.info(f"Generating {num_questions} True/False questions...")
+        logger.info(f"Generating {num_questions} True/False questions with difficulty: {target_difficulty}...")
         
         try:
-            # Tokenize into sentences
             sentences = sent_tokenize(text)
-            
-            # Filter out short sentences
-            sentences = [s for s in sentences if len(s.split()) > 5]
+            sentences = [s for s in sentences if len(s.split()) > 4]
             
             if not sentences:
                 logger.warning("No suitable sentences found for T/F generation")
                 return []
             
-            # Generate mix of true and false questions
             questions = []
             num_true = num_questions // 2
             num_false = num_questions - num_true
             
-            # Generate TRUE questions (use original sentences)
             available_sentences = sentences.copy()
+            
+            # Ensure we have enough sentences even if requested count exceeds sentence count
+            while len(available_sentences) < num_questions:
+                available_sentences.extend(sentences)
+                
             random.shuffle(available_sentences)
             
+            # Generate TRUE questions
             for i in range(min(num_true, len(available_sentences))):
                 sentence = available_sentences[i]
                 questions.append({
                     'question': sentence,
                     'answer': True,
                     'type': 'True/False',
-                    'explanation': 'This statement is directly from the text.',
+                    'difficulty': target_difficulty if target_difficulty != "Any" else "Easy",
+                    'explanation': 'This statement is directly and accurately stated in the text.',
                     'user_answer': None
                 })
             
-            # Generate FALSE questions (modify sentences)
+            # Generate FALSE questions based on difficulty
             for i in range(min(num_false, len(available_sentences) - num_true)):
                 sentence = available_sentences[num_true + i]
-                false_sentence, explanation = self._create_false_statement(sentence)
+                false_sentence, explanation = self._create_false_statement(sentence, target_difficulty)
                 
                 questions.append({
                     'question': false_sentence,
                     'answer': False,
                     'type': 'True/False',
+                    'difficulty': target_difficulty if target_difficulty != "Any" else "Medium",
                     'explanation': explanation,
                     'user_answer': None
                 })
             
-            # Shuffle the order
             random.shuffle(questions)
-            
             logger.info(f"Successfully generated {len(questions)} T/F questions")
-            return questions
+            return questions[:num_questions]
             
         except Exception as exc:
             logger.error(f"Error generating T/F questions: {exc}")
             return []
     
-    def _create_false_statement(self, sentence: str) -> tuple:
-        """
-        Create a false statement by modifying the sentence.
-        
-        Returns:
-            Tuple of (false_statement, explanation)
-        """
-        # Simple negation strategies
-        strategies = [
-            self._negate_verb,
-            self._swap_numbers,
-            self._replace_keywords,
-        ]
-        
-        # Try each strategy
+    def _create_false_statement(self, sentence: str, difficulty: str) -> tuple:
+        """Create a false statement tailored to the requested difficulty level."""
+        # Hard mode prioritizes subtle keyword or number swaps over simple 'not' negations
+        if difficulty == "Hard":
+            strategies = [self._swap_numbers, self._replace_keywords, self._negate_verb]
+        elif difficulty == "Easy":
+            strategies = [self._negate_verb, self._replace_keywords]
+        else:
+            strategies = [self._negate_verb, self._swap_numbers, self._replace_keywords]
+            
         random.shuffle(strategies)
         for strategy in strategies:
             result = strategy(sentence)
             if result:
                 return result
         
-        # Fallback: simple negation
         return (
             sentence.replace("is", "is not").replace("are", "are not"),
-            "The statement has been negated."
+            "The statement has been altered to contradict the source text."
         )
     
     def _negate_verb(self, sentence: str) -> tuple:
-        """Add 'not' after helping verbs."""
+        """Add negation to helping verbs."""
         patterns = [
             (r'\bis\b', 'is not'),
             (r'\bare\b', 'are not'),
@@ -148,22 +134,24 @@ class TrueFalseGenerator:
         for pattern, replacement in patterns:
             if re.search(pattern, sentence, re.IGNORECASE):
                 modified = re.sub(pattern, replacement, sentence, count=1, flags=re.IGNORECASE)
-                return modified, "The verb has been negated."
+                return modified, "The statement reverses the verb meaning found in the text."
         
         return None
     
     def _swap_numbers(self, sentence: str) -> tuple:
-        """Swap numbers in the sentence."""
+        """Swap numbers to create a subtle factual error."""
         numbers = re.findall(r'\b\d+\b', sentence)
         if numbers:
             original = numbers[0]
-            fake = str(int(original) + random.choice([1, 2, -1, -2, 10]))
+            fake = str(int(original) + random.choice([1, 2, 5, -1, -2]))
+            if fake == original:
+                fake = str(int(original) + 3)
             modified = sentence.replace(original, fake, 1)
-            return modified, f"The number has been changed from {original} to {fake}."
+            return modified, f"The numeric value was altered from {original} to {fake}."
         return None
     
     def _replace_keywords(self, sentence: str) -> tuple:
-        """Replace keywords with opposite concepts."""
+        """Replace key concepts with antonyms."""
         replacements = {
             'increase': 'decrease',
             'decrease': 'increase',
@@ -175,12 +163,14 @@ class TrueFalseGenerator:
             'none': 'all',
             'before': 'after',
             'after': 'before',
+            'primary': 'secondary',
+            'major': 'minor'
         }
         
         for original, replacement in replacements.items():
             pattern = r'\b' + original + r'\b'
             if re.search(pattern, sentence, re.IGNORECASE):
                 modified = re.sub(pattern, replacement, sentence, count=1, flags=re.IGNORECASE)
-                return modified, f"'{original}' has been replaced with '{replacement}'."
+                return modified, f"The keyword '{original}' was replaced with its opposite '{replacement}'."
         
         return None
