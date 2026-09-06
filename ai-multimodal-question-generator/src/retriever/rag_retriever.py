@@ -3,7 +3,6 @@
 Provides fast, embedding-based passage retrieval using sentence-transformers
 for dense encoding and FAISS for approximate nearest-neighbour search.
 """
-
 from __future__ import annotations
 
 import logging
